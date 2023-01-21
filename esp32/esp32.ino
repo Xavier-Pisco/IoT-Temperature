@@ -93,7 +93,11 @@ static void notifyCallback(
     Serial.print(" of data length ");
     Serial.println(length);
     Serial.print("data: ");
-    Serial.printf("%f\n", decode_temperature_celsius(pData));
+    float temperature = decode_temperature_celsius(pData);
+    Serial.printf("%f\n", temperature);
+    char device_name[40];
+    sprintf(device_name, "group3_Dev%d", id);
+    tb.sendTelemetryFloat(device_name, temperature);
 }
 
 static void notifyCallback0(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
@@ -268,29 +272,29 @@ void loop() {
 
  
 
-  if(millis()-millis_counter > send_delay) {
-    Serial.println("Sending data...");
+  // if(millis()-millis_counter > send_delay) {
+  //   Serial.println("Sending data...");
 
-    // Uploads new telemetry to ThingsBoard using MQTT.
-    // See https://thingsboard.io/docs/reference/mqtt-api/#telemetry-upload-api
-    // for more details
-    float h = 10.;
-    // Read temperature as Celsius (the default)
-    float t = 199.;
+  //   // Uploads new telemetry to ThingsBoard using MQTT.
+  //   // See https://thingsboard.io/docs/reference/mqtt-api/#telemetry-upload-api
+  //   // for more details
+  //   float h = 10.;
+  //   // Read temperature as Celsius (the default)
+  //   float t = 199.;
     
-    if (isnan(h) || isnan(t)) {
-      Serial.println("Failed to read from DHT sensor!");
-    } else {
-      Serial.print("Temperature:");
-      Serial.print(t);
-      Serial.print(" Humidity ");
-      Serial.println(h);
-      tb.sendTelemetryFloat("temperature", t);
-      tb.sendTelemetryFloat("humidity", h);
-    }
+  //   if (isnan(h) || isnan(t)) {
+  //     Serial.println("Failed to read from DHT sensor!");
+  //   } else {
+  //     Serial.print("Temperature:");
+  //     Serial.print(t);
+  //     Serial.print(" Humidity ");
+  //     Serial.println(h);
+  //     tb.sendTelemetryFloat("temperature", t);
+  //     tb.sendTelemetryFloat("humidity", h);
+  //   }
 
-    millis_counter = millis(); //reset millis counter
-  }
+  //   millis_counter = millis(); //reset millis counter
+  // }
 
   // Process messages
   tb.loop();
