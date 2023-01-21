@@ -32,7 +32,7 @@ BASED ON
 // to understand how to obtain an access token
 #define TOKEN              "iarvR1fs1kKiT9pEmzmE" // "TOKEN"
 // ThingsBoard server instance.
-#define THINGSBOARD_SERVER  "128.130.123.100"
+#define THINGSBOARD_SERVER  "128.131.239.24"
 
 // Baud rate for debug serial
 #define SERIAL_DEBUG_BAUD    115200
@@ -44,6 +44,7 @@ ThingsBoard tb(espClient);
 // the Wifi radio's status
 int status = WL_IDLE_STATUS;
 
+float temperatures[] =  {0, 0, 0};
 
 // Period of sending a temperature/humidity data.
 int send_delay = 2000;
@@ -88,16 +89,16 @@ static void notifyCallback(
   size_t length,
   bool isNotify,
   int id) {
-    Serial.printf("Notify callback for device %d characteristic ", id);
-    Serial.print(pBLERemoteCharacteristic->getUUID().toString().c_str());
-    Serial.print(" of data length ");
-    Serial.println(length);
-    Serial.print("data: ");
-    float temperature = decode_temperature_celsius(pData);
-    Serial.printf("%f\n", temperature);
+    // Serial.printf("Notify callback for device %d characteristic ", id);
+    // Serial.print(pBLERemoteCharacteristic->getUUID().toString().c_str());
+    // Serial.print(" of data length ");
+    // Serial.println(length);
+    // Serial.print("data: ");
+    temperatures[id] = decode_temperature_celsius(pData);
+    // Serial.printf("%f\n", temperatures[id]);
     char device_name[40];
     sprintf(device_name, "group3_Dev%d", id);
-    tb.sendTelemetryFloat(device_name, temperature);
+    tb.sendTelemetryFloat(device_name, temperatures[id]);
 }
 
 static void notifyCallback0(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
@@ -225,6 +226,18 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
   } // onResult
 }; // MyAdvertisedDeviceCallbacks
 
+RPC_Response requestReadings(const RPC_Data &data) {
+    Serial.printf("Response with %f\n",  temperatures[0]);
+    // tb.sendTelemetryFloat("group3_Dev1", temperatures[0]);
+    // tb.sendTelemetryFloat("group3_Dev2", temperatures[1]);
+    // tb.sendTelemetryFloat("group3_Dev3", temperatures[2]);
+
+    return RPC_Response("temperatures", temperatures[0]);
+} 
+
+const std::vector<RPC_Callback> RPCCallbacks = {
+  RPC_Callback("requestReadings", requestReadings),
+};
 
 // Setup an application
 void setup() {
@@ -267,6 +280,9 @@ void loop() {
     if (!tb.connect(THINGSBOARD_SERVER, TOKEN)) {
       Serial.println("Failed to connect");
       return;
+    }
+    if (!tb.RPC_Subscribe(RPCCallbacks.cbegin(), RPCCallbacks.cend()))  {
+      Serial.println("Failed to subscribe RPC.");
     }
   }
 
