@@ -32,7 +32,7 @@ BASED ON
 // to understand how to obtain an access token
 #define TOKEN              "iarvR1fs1kKiT9pEmzmE" // "TOKEN"
 // ThingsBoard server instance.
-#define THINGSBOARD_SERVER  "128.131.239.24"
+#define THINGSBOARD_SERVER  "192.168.12.1"
 
 // Baud rate for debug serial
 #define SERIAL_DEBUG_BAUD    115200
@@ -228,9 +228,6 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
 RPC_Response requestReadings(const RPC_Data &data) {
     Serial.printf("Response with %f\n",  temperatures[0]);
-    // tb.sendTelemetryFloat("group3_Dev1", temperatures[0]);
-    // tb.sendTelemetryFloat("group3_Dev2", temperatures[1]);
-    // tb.sendTelemetryFloat("group3_Dev3", temperatures[2]);
 
     return RPC_Response("temperatures", temperatures[0]);
 } 
