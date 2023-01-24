@@ -227,13 +227,16 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 }; // MyAdvertisedDeviceCallbacks
 
 RPC_Response requestReadings(const RPC_Data &data) {
-    Serial.printf("Response with %f\n",  temperatures[0]);
-
-    return RPC_Response("temperatures", temperatures[0]);
+  // For some reason, RPC_Response only accepts (char*, int) even though its implementation has other options
+    // char response[6];
+    // sprintf(response, "%02d%02d%02d", temperatures[0], temperatures[1], temperatures[2]);
+    int response = (int) ((temperatures[0] + temperatures[1] + temperatures[2]) / 3 * 100);
+    return RPC_Response("temperatures", response);
 } 
 
+// ESP32 recognizes message from test but not from "readings" or "requestReadings"
 const std::vector<RPC_Callback> RPCCallbacks = {
-  RPC_Callback("requestReadings", requestReadings),
+  RPC_Callback("test", requestReadings),
 };
 
 // Setup an application
