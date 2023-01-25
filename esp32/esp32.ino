@@ -32,7 +32,7 @@ BASED ON
 // to understand how to obtain an access token
 #define TOKEN              "iarvR1fs1kKiT9pEmzmE" // "TOKEN"
 // ThingsBoard server instance.
-#define THINGSBOARD_SERVER  "192.168.12.1"
+#define SERVER  "192.168.12.1"
 
 // Baud rate for debug serial
 #define SERIAL_DEBUG_BAUD    115200
@@ -274,10 +274,10 @@ void loop() {
   if (!tb.connected()) {
     // Connect to the ThingsBoard
     Serial.print("Connecting to: ");
-    Serial.print(THINGSBOARD_SERVER);
+    Serial.print(SERVER);
     Serial.print(" with token ");
     Serial.println(TOKEN);
-    if (!tb.connect(THINGSBOARD_SERVER, TOKEN)) {
+    if (!tb.connect(SERVER, TOKEN)) {
       Serial.println("Failed to connect");
       return;
     }
