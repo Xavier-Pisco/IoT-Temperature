@@ -1,8 +1,8 @@
 # IoT - Group 3
 
-- Philipp Auer ()
-- Rafael Cristino ()
-- Xavier Pisco (e12206635)
+- Philipp Auer (01420446)
+- Rafael Cristino (12202238)
+- Xavier Pisco (12206635)
 
 ## Code structure
 
@@ -20,6 +20,13 @@
     - PubSubClient
     - ThingsBoard
 - [ThingsBoard](https://thingsboard.io/)
+
+### Building the documentation
+
+ - [pandoc](https://pandoc.org/)
+ - LaTeX
+
+`pandoc README.md -o README.pdf`
 
 ## Setup
 
@@ -47,14 +54,21 @@ We created a dashboard which shows a graph with the 3 temperatures over time.
 
 ## Request temperature
 
-You can request the temperatures via the command line by executing the following command:
-```
-mosquitto_pub -h <mosquitto_ip> -t "v1/devices/me/rpc/request/test" -m "{\"method\":\"test\", \"params\":{}}"
-```
+You can request an average of the 3 captured temperatures via RPC. To do so we created a button on the Dashboard. After clicking it the ESP32 will reply with an average, which is also displayed on the dashboard.
 
-## Observed problems
+## Observed Problems
 
-During the development we had several issues, including:
-- Complications configuring mosquitto to work as expected
-- ThingsBoard button to request temperature doesn't send a message to mosquitto
+### Connecting a mosquitto broker
 
+In order to connect the mosquitto broker to the Thingsboard it is very important to confiugre the respective device as `Gateway`. Additionally the local broker has to sign into the ThingsBoard using the device access token in its `username` configuration.
+
+Our configuration file `mosquitto.conf` is included with the code and this documentation file.
+
+### Connecting RPC
+
+We had a lot of issues concerning the RPC capabilities of Thingsboard. In order to finally solve it, we needed to
+
+ 1. Connect our own mosquitto broker
+ 2. Let subscribe to the specific incoming topic that is used for RPC.
+
+If the ESP is connected directly to the Thingsboard or the broker subscribes to a wildcard topic, the service won't work, but instead Thingsboard will throw a HTTP 504 Gateway Timeout error.
