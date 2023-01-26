@@ -1,18 +1,7 @@
-#include <WiFi.h>           // WiFi control for ESP32
-#include <ThingsBoard.h>    // ThingsBoard SDK
+#include <WiFi.h>
+#include <ThingsBoard.h>
 #include <string.h>
 #include "BLEDevice.h"
-//#include "BLEScan.h"
-
-// The remote service we wish to connect to.
-static BLEUUID serviceUUID("00001809-0000-1000-8000-00805f9b34fb");
-// The characteristic of the remote service we are interested in.
-static BLEUUID    charUUID("00002a1e-0000-1000-8000-00805f9b34fb");
-
-static boolean doConnect = false;
-static boolean connected = false;
-static boolean doScan = false;
-static int countDevices = 0;
 
 /*******
 BASED ON 
@@ -20,8 +9,7 @@ BASED ON
 - https://www.hackster.io/magicbit0/connect-your-magicbit-esp32-to-thingsboard-a48181
 *******/
 
-// Helper macro to calculate array size
-#define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
+#define DEVICE_AMOUNT 3
 
 // WiFi access point
 #define WIFI_AP_NAME       "iot"// "WIFI_AP"
@@ -37,23 +25,42 @@ BASED ON
 // Baud rate for debug serial
 #define SERIAL_DEBUG_BAUD    115200
 
+// The remote service we wish to connect to.
+static BLEUUID serviceUUID("00001809-0000-1000-8000-00805f9b34fb");
+// The characteristic of the remote service we are interested in.
+static BLEUUID    charUUID("00002a1e-0000-1000-8000-00805f9b34fb");
+
 // Initialize ThingsBoard client
-WiFiClient espClient;
+WiFiClient esp_client;
 // Initialize ThingsBoard instance
-ThingsBoard tb(espClient);
+ThingsBoard tb(esp_client);
 // the Wifi radio's status
 int status = WL_IDLE_STATUS;
 
-float temperatures[] =  {0, 0, 0};
+// Whether to connect to BLE devices
+static boolean do_connect = false;
+// Count of found devices
+static int count_devices = 0;
 
-// Period of sending a temperature/humidity data.
-int send_delay = 2000;
-unsigned long millis_counter;
-void InitWiFi()
+// MAC addresses of our thingys
+static const char * mac_addresses[] = {
+  "f7:ac:1d:4a:7b:b7",
+  "ca:07:3f:2c:1c:10",
+  "f0:ae:26:c8:65:3b"  
+};
+
+// The device representation of the thingys
+static BLEAdvertisedDevice * ble_devices[] = {
+  NULL, NULL, NULL
+};
+
+// Last temperatures values
+static float temperatures[] = { 0., 0., 0. };
+
+
+void init_wifi()
 {
   Serial.println("Connecting to AP ...");
-  // attempt to connect to WiFi network
-
   WiFi.begin(WIFI_AP_NAME, WIFI_PASSWORD);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -62,10 +69,10 @@ void InitWiFi()
   Serial.println("Connected to AP");
 }
 
-void reconnect() {
-  // Loop until we're reconnected
+
+void reconnect_wifi() {
   status = WiFi.status();
-  if ( status != WL_CONNECTED) {
+  if (status != WL_CONNECTED) {
     WiFi.begin(WIFI_AP_NAME, WIFI_PASSWORD);
     while (WiFi.status() != WL_CONNECTED) {
       delay(500);
@@ -75,6 +82,10 @@ void reconnect() {
   }
 }
 
+
+/**
+* Decode tempereature coming from the thingys
+*/
 float decode_temperature_celsius(uint8_t * data) {
   uint32_t result = 0;
   for (int i = 3; i > 0; i--) {
@@ -83,53 +94,58 @@ float decode_temperature_celsius(uint8_t * data) {
   return result / 100.;
 }
 
+
+/*
+ * Callback for characteristic notify
+ */
 static void notifyCallback(
   BLERemoteCharacteristic* pBLERemoteCharacteristic,
   uint8_t* pData,
   size_t length,
   bool isNotify,
   int id) {
-    // Serial.printf("Notify callback for device %d characteristic ", id);
-    // Serial.print(pBLERemoteCharacteristic->getUUID().toString().c_str());
-    // Serial.print(" of data length ");
-    // Serial.println(length);
-    // Serial.print("data: ");
     temperatures[id] = decode_temperature_celsius(pData);
-    // Serial.printf("%f\n", temperatures[id]);
     char device_name[40];
     sprintf(device_name, "group3_Dev%d", id);
     tb.sendTelemetryFloat(device_name, temperatures[id]);
 }
 
-static void notifyCallback0(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
+static void notify_callback0(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
   notifyCallback(pBLERemoteCharacteristic, pData, length, isNotify, 0);
 }
 
-static void notifyCallback1(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
+static void notify_callback1(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
   notifyCallback(pBLERemoteCharacteristic, pData, length, isNotify, 1);
 }
 
-static void notifyCallback2(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
+static void notify_callback2(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
   notifyCallback(pBLERemoteCharacteristic, pData, length, isNotify, 2);
 }
 
-typedef void (*notifyCallbackType)(BLERemoteCharacteristic*, uint8_t*, size_t, bool);
+typedef void (*notify_callback_type)(BLERemoteCharacteristic*, uint8_t*, size_t, bool);
 
-static notifyCallbackType notifyCallbacks[] = {
-  notifyCallback0, notifyCallback1, notifyCallback2
+static notify_callback_type notifyCallbacks[] = {
+  notify_callback0, notify_callback1, notify_callback2
 };
 
+
+/**
+ * Callback for BLE client
+ */
 class MyClientCallback : public BLEClientCallbacks {
   void onConnect(BLEClient* pclient) {
   }
 
   void onDisconnect(BLEClient* pclient) {
-    connected = false;
-    Serial.println("onDisconnect");
+    Serial.printf("Disconnected BLE client %s\n", pclient->toString().c_str());
   }
 };
 
-bool connectToServer(BLEAdvertisedDevice * myDevice, int clientId) {
+
+/**
+* Forms connection to BLE servers from thingys
+*/
+bool connect_ble_server(BLEAdvertisedDevice * myDevice, int clientId) {
     Serial.print("Forming a connection to ");
     Serial.println(myDevice->getAddress().toString().c_str());
 
@@ -139,10 +155,10 @@ bool connectToServer(BLEAdvertisedDevice * myDevice, int clientId) {
 
     // Connect to the remove BLE Server.
     pClient->connect(myDevice);  // if you pass BLEAdvertisedDevice instead of address, it will be recognized type of peer device address (public or private)
-    Serial.println(" - Connected to server");
+    Serial.println(" - Connected to BLE server");
     pClient->setMTU(517); //set client to request maximum MTU from server (default is 23 otherwise)
   
-    // Obtain a reference to the service we are after in the remote BLE server.
+    // Obtain a reference to the service we are after.
     BLERemoteService* pRemoteService = pClient->getService(serviceUUID);
     if (pRemoteService == nullptr) {
       Serial.print("Failed to find our service UUID: ");
@@ -150,17 +166,8 @@ bool connectToServer(BLEAdvertisedDevice * myDevice, int clientId) {
       pClient->disconnect();
       return false;
     }
-    Serial.println(" - Found our service");
 
-
-    // Obtain a reference to the characteristic in the service of the remote BLE server.
-    //Serial.println();
-    
-    // auto characteristics = pRemoteService->getCharacteristics();
-    // for (auto it = characteristics->begin(); it != characteristics->end(); it++) {
-    //   Serial.println(std::string(it->first));
-    // }
-
+    // Obtain a reference to the characteristic we are after.
     BLERemoteCharacteristic * pRemoteCharacteristic = pRemoteService->getCharacteristic(charUUID);
     if (pRemoteCharacteristic == nullptr) {
       Serial.print("Failed to find our characteristic UUID: ");
@@ -168,34 +175,16 @@ bool connectToServer(BLEAdvertisedDevice * myDevice, int clientId) {
       pClient->disconnect();
       return false;
     }
-    Serial.println(" - Found our characteristic");
-
-    // Read the value of the characteristic.
-    if(pRemoteCharacteristic->canRead()) {
-      std::string value = pRemoteCharacteristic->readValue();
-      Serial.print("The characteristic value was: ");
-      Serial.println(value.c_str());
-    }
 
     if(pRemoteCharacteristic->canNotify())
       pRemoteCharacteristic->registerForNotify(notifyCallbacks[clientId]);
 
-    connected = true;
     return true;
 }
 
-static const char * macAddresses[] = {
-  "f7:ac:1d:4a:7b:b7",
-  "ca:07:3f:2c:1c:10",
-  "f0:ae:26:c8:65:3b"  
-};
-
-static BLEAdvertisedDevice * bleDevices[] = {
-  NULL, NULL, NULL
-};
 
 /**
- * Scan for BLE servers and find the first one that advertises the service we are looking for.
+ * Scan for BLE servers and find out thingys.
  */
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
@@ -208,48 +197,50 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
     Serial.printf("Address: %s\n", advertisedDevice.getAddress().toString().c_str());
 
-    for (int i = 0; i < 3; i++) {
-      if (strcmp(macAddresses[i], advertisedDevice.getAddress().toString().c_str()) == 0
+    for (int i = 0; i < DEVICE_AMOUNT; i++) {
+      if (strcmp(mac_addresses[i], advertisedDevice.getAddress().toString().c_str()) == 0
           && advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(serviceUUID)) {
-        bleDevices[i] = new BLEAdvertisedDevice(advertisedDevice);
-        countDevices++;
+        ble_devices[i] = new BLEAdvertisedDevice(advertisedDevice);
+        count_devices++;
         break;
       }
     }
 
-    if (countDevices == 2) {
+    if (count_devices == DEVICE_AMOUNT) {
       Serial.println("Got all devices; stopping scan and starting connect.");      
       BLEDevice::getScan()->stop();
-      doConnect = true;
-      doScan = false;
-    } // Found our server
-  } // onResult
-}; // MyAdvertisedDeviceCallbacks
-
-RPC_Response requestReadings(const RPC_Data &data) {
-  // For some reason, RPC_Response only accepts (char*, int) even though its implementation has other options
-    // char response[6];
-    // sprintf(response, "%02d%02d%02d", temperatures[0], temperatures[1], temperatures[2]);
-    int response = (int) ((temperatures[0] + temperatures[1] + temperatures[2]) / 3 * 100);
-    return RPC_Response("temperatures", response);
-} 
-
-// ESP32 recognizes message from test but not from "readings" or "requestReadings"
-const std::vector<RPC_Callback> RPCCallbacks = {
-  RPC_Callback("test", requestReadings),
+      do_connect = true;
+    }
+  }
 };
 
-// Setup an application
+
+/**
+ * Callback for RPC
+ */
+RPC_Response requestAVGTemperature(const RPC_Data &data) {
+    float response = (temperatures[0] + temperatures[1] + temperatures[2]) / 3.;
+    printf("[RPC] Senging AVG temperature: %f\n", response);
+    tb.sendTelemetryFloat("group3_AVGtemp", response);
+    return RPC_Response("test", 1);
+}
+
+// ESP32 recognizes message from test but not from "readings" or "requestReadings" :/
+const std::vector<RPC_Callback> RPCCallbacks = {
+  RPC_Callback("test", requestAVGTemperature),
+};
+
+
 void setup() {
   // Initialize serial for debugging
   Serial.begin(SERIAL_DEBUG_BAUD);
   WiFi.begin(WIFI_AP_NAME, WIFI_PASSWORD);
-  InitWiFi();
+  init_wifi();
   
   BLEDevice::init("");
 
   // Retrieve a Scanner and set the callback we want to use to be informed when we
-  // have detected a new device.  Specify that we want active scanning and start the
+  // have detected a new device. Specify that we want active scanning and start the
   // scan to run for 5 seconds.
   BLEScan* pBLEScan = BLEDevice::getScan();
   pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
@@ -259,24 +250,17 @@ void setup() {
   pBLEScan->start(5, false);
 }
 
-// Main application loop
+
 void loop() {
-
-
   // Reconnect to WiFi, if needed
   if (WiFi.status() != WL_CONNECTED) {
-    reconnect();
+    reconnect_wifi();
     return;
   }
 
-
   // Reconnect to ThingsBoard, if needed
   if (!tb.connected()) {
-    // Connect to the ThingsBoard
-    Serial.print("Connecting to: ");
-    Serial.print(SERVER);
-    Serial.print(" with token ");
-    Serial.println(TOKEN);
+    Serial.printf("Connecting to thingsboard (%s) with token %s\n", SERVER, TOKEN);
     if (!tb.connect(SERVER, TOKEN)) {
       Serial.println("Failed to connect");
       return;
@@ -286,57 +270,22 @@ void loop() {
     }
   }
 
- 
-
-  // if(millis()-millis_counter > send_delay) {
-  //   Serial.println("Sending data...");
-
-  //   // Uploads new telemetry to ThingsBoard using MQTT.
-  //   // See https://thingsboard.io/docs/reference/mqtt-api/#telemetry-upload-api
-  //   // for more details
-  //   float h = 10.;
-  //   // Read temperature as Celsius (the default)
-  //   float t = 199.;
-    
-  //   if (isnan(h) || isnan(t)) {
-  //     Serial.println("Failed to read from DHT sensor!");
-  //   } else {
-  //     Serial.print("Temperature:");
-  //     Serial.print(t);
-  //     Serial.print(" Humidity ");
-  //     Serial.println(h);
-  //     tb.sendTelemetryFloat("temperature", t);
-  //     tb.sendTelemetryFloat("humidity", h);
-  //   }
-
-  //   millis_counter = millis(); //reset millis counter
-  // }
-
   // Process messages
   tb.loop();
 
   // If the flag "doConnect" is true then we have scanned for and found the desired
-  // BLE Server with which we wish to connect.  Now we connect to it.  Once we are 
-  // connected we set the connected flag to be true.
-  if (doConnect == true) {
-    for (int i = 0; i < 3; i++) {
-      if (bleDevices[i] != NULL && connectToServer(bleDevices[i], i)) {
-        Serial.println("We are now connected to the BLE Server.");
+  // BLE Server with which we wish to connect. Now we connect to it. Once we are 
+  // connected we set the connected flag to be false.
+  if (do_connect == true) {
+    for (int i = 0; i < DEVICE_AMOUNT; i++) {
+      if (ble_devices[i] != NULL && connect_ble_server(ble_devices[i], i)) {
+        Serial.printf("We are now connected to BLE Server %d.\n", i);
       } else {
         Serial.println("We have failed to connect to the server; there is nothin more we will do.");
       }
     }
-    doConnect = false;
+    do_connect = false;
   }
-
-  // If we are connected to a peer BLE Server, update the characteristic each time we are reached
-  // with the current time since boot.
-  if (connected) {
-    String newValue = "Time since boot: " + String(millis()/1000);
-  }
-  // if(doScan){
-  //   BLEDevice::getScan()->start(0);  // this is just example to start scan after disconnect, most likely there is better way to do it in arduino
-  // }
   
   delay(1000); // Delay a second between loops.
 }
