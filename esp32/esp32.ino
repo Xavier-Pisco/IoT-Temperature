@@ -12,15 +12,14 @@ BASED ON
 #define DEVICE_AMOUNT 3
 
 // WiFi access point
-#define WIFI_AP_NAME       "iot"// "WIFI_AP"
+#define WIFI_AP_NAME "iot"// "WIFI_AP"
 // WiFi password
-#define WIFI_PASSWORD      "123456789"// "WIFI_PASSWORD"
+#define WIFI_PASSWORD "123456789"// "WIFI_PASSWORD"
 
-// See https://thingsboard.io/docs/getting-started-guides/helloworld/
-// to understand how to obtain an access token
-#define TOKEN              "iarvR1fs1kKiT9pEmzmE" // "TOKEN"
+// ThingsBoard token
+#define TOKEN "iarvR1fs1kKiT9pEmzmE" // "TOKEN"
 // ThingsBoard server instance.
-#define SERVER  "192.168.12.1"
+#define SERVER "192.168.12.1"
 
 // Baud rate for debug serial
 #define SERIAL_DEBUG_BAUD    115200
