@@ -8,18 +8,17 @@
 
 - **esp32** - Folder with the code to execute on the ESP32
 - **thingy** - Folder with the code to execute on the Thingys
-- **mosquitto.conf** - File with the configuration for the Mosquitto broker.
+- **mosquitto.conf** - File with the configuration for the Mosquitto broker
 - **README.md** - This file
 
 ## Dependencies
 
 - [Mosquitto](https://mosquitto.org)
-- [Arduino IDE](https://www.arduino.cc/en/software/) with the  following libraries:
+- [Arduino IDE](https://www.cc/en/software/) with the  following libraries:
     - ArduinoHTTPClient
     - ArduinoJSON
     - PubSubClient
-    - ThingsBoard
-- [ThingsBoard](https://thingsboard.io/)
+    - [ThingsBoard](https://thingsboard.io/)
 
 ### Building the documentation
 
@@ -29,6 +28,8 @@
 `pandoc README.md -o README.pdf`
 
 ## Setup
+
+![Setup Diagram](./setup.png)
 
 On the ThingsBoard you should:
 - Create a device which is a gateway
@@ -60,15 +61,15 @@ You can request an average of the 3 captured temperatures via RPC. To do so we c
 
 ### Connecting a mosquitto broker
 
-In order to connect the mosquitto broker to the Thingsboard it is very important to confiugre the respective device as `Gateway`. Additionally the local broker has to sign into the ThingsBoard using the device access token in its `username` configuration.
+In order to connect the mosquitto broker to the ThingsBoard it is very important to configure the respective device as `Gateway`. Additionally the local broker has to sign into the ThingsBoard using the device access token in its `username` configuration.
 
 Our configuration file `mosquitto.conf` is included with the code and this documentation file.
 
 ### Connecting RPC
 
-We had a lot of issues concerning the RPC capabilities of Thingsboard. In order to finally solve it, we needed to
+We had a lot of issues concerning the RPC capabilities of ThingsBoard. In order to finally solve it, we needed to
 
  1. Connect our own mosquitto broker
- 2. Let subscribe to the specific incoming topic that is used for RPC.
+ 2. Subscribe the broker to the specific incoming topic that is used for RPC (`v1/devices/me/rpc/request/+`).
 
-If the ESP is connected directly to the Thingsboard or the broker subscribes to a wildcard topic, the service won't work, but instead Thingsboard will throw a HTTP 504 Gateway Timeout error.
+If the ESP is connected directly to the ThingsBoard or the broker subscribes to a wildcard topic, the service won't work and the ThingsBoard will throw a 504 Gateway Timeout error.
