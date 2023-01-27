@@ -29,7 +29,7 @@
 
 ## Setup
 
-![Setup Diagram](./setup.png)
+![Setup Diagram](./docs/setup.png)
 
 On the ThingsBoard you should:
 - Create a device which is a gateway
