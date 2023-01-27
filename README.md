@@ -53,7 +53,7 @@ On the mosquitto.conf you should:
 
 We created a dashboard which shows a graph with the 3 temperatures over time.
 
-![ThingsBoard Dashboard](./dashboard.png)
+![ThingsBoard Dashboard](./docs/dashboard.png)
 
 ## Request temperature
 
