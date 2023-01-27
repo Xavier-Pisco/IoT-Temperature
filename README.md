@@ -53,6 +53,8 @@ On the mosquitto.conf you should:
 
 We created a dashboard which shows a graph with the 3 temperatures over time.
 
+![ThingsBoard Dashboard](./dashboard.png)
+
 ## Request temperature
 
 You can request an average of the 3 captured temperatures via RPC. To do so we created a button on the Dashboard. After clicking it the ESP32 will reply with an average, which is also displayed on the dashboard.
