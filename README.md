@@ -20,13 +20,6 @@
     - PubSubClient
     - [ThingsBoard](https://thingsboard.io/)
 
-### Building the documentation
-
- - [pandoc](https://pandoc.org/)
- - LaTeX
-
-`pandoc README.md -o README.pdf`
-
 ## Setup
 
 ![Setup Diagram](./docs/setup.png)
